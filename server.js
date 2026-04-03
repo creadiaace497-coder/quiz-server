@@ -1,19 +1,25 @@
+const http = require("http");
 const WebSocket = require("ws");
 
-// ポート（Render対応）
 const port = process.env.PORT || 3000;
 
-const wss = new WebSocket.Server({ port });
+// HTTPサーバーを作る（Render対策）
+const server = http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end("Server is running");
+});
+
+// WebSocketを紐付け
+const wss = new WebSocket.Server({ server });
 
 let host = null;
 
 wss.on("connection", (ws) => {
-    console.log("接続された");
+    console.log("接続");
 
     ws.on("message", (msg) => {
         const data = JSON.parse(msg);
 
-        // ホスト登録
         if (data.type === "hello") {
             if (data.role === "host") {
                 host = ws;
@@ -21,7 +27,6 @@ wss.on("connection", (ws) => {
             }
         }
 
-        // 回答をホストへ即転送
         if (data.type === "answer") {
             if (host && host.readyState === WebSocket.OPEN) {
                 host.send(JSON.stringify(data));
@@ -31,8 +36,10 @@ wss.on("connection", (ws) => {
 
     ws.on("close", () => {
         if (ws === host) host = null;
-        console.log("切断された");
     });
 });
 
-console.log("サーバー起動ポート:", port);
+// ★ここ重要
+server.listen(port, () => {
+    console.log("Server running on port " + port);
+});
